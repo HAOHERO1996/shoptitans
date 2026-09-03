@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Két Sắt Tài Khoản Cá Nhân</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;     
+            --card-bg: #1e293b;      
+            --accent: #38bdf8;       
+            --text-color: #f8fafc;   
+            --danger: #ef4444;       
+            --success: #22c55e;      
+            --warning: #f59e0b;      
+            --purple: #a855f7;       
+            --pink: #ec4899;         
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background-color: var(--bg-color); 
+            color: var(--text-color); 
+            margin: 0; 
+            padding: 20px; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            min-height: 100vh; 
+        }
+
+        .container {
+            width: 100%; 
+            max-width: 650px; 
+            background: var(--card-bg); 
+            padding: 30px; 
+            border-radius: 12px; 
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5); 
+            position: relative; 
+        }
+
+        h2 {
+            text-align: center; 
+            color: var(--accent); 
+            margin-bottom: 20px; 
+        }
+
+        #toast-container {
+            position: fixed; 
+            top: 20px; 
+            right: 20px; 
+            z-index: 9999; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 10px; 
+        }
+
+        .toast {
+            background: #1e293b; 
+            color: #f8fafc; 
+            padding: 12px 20px; 
+            border-radius: 8px; 
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3); 
+            border-left: 4px solid var(--accent); 
+            font-size: 14px; 
+            font-weight: 500; 
+            display: flex; 
+            align-items: center; 
+            gap: 10px; 
+            min-width: 250px; 
+            opacity: 0; 
+            transform: translateY(-20px); 
+            transition: all 0.3s ease; 
+        }
+
+        .toast.show {
+            opacity: 1; 
+            transform: translateY(0); 
+        }
+
+        .toast.success { border-left-color: var(--success); } 
+        .toast.danger { border-left-color: var(--danger); } 
+        .toast.warning { border-left-color: var(--warning); } 
+
+        input[type="password"], input[type="text"], textarea {
+            width: 100%; 
+            padding: 12px; 
+            margin: 10px 0; 
+            background: #0f172a; 
+            border: 1px solid #475569; 
+            border-radius: 6px; 
+            color: white; 
+            font-size: 16px; 
+            box-sizing: border-box; 
+            font-family: inherit; 
+        }
+
+        textarea {
+            resize: vertical; 
+            height: 80px; 
+        }
+
+        button {
+            background: var(--accent); 
+            color: var(--bg-color); 
+            border: none; 
+            padding: 12px 20px; 
+            font-size: 16px; 
+            font-weight: bold; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            width: 100%; 
+            margin-top: 10px; 
+            transition: 0.2s; 
+        }
+
+        button:hover {
+            opacity: 0.9; 
+        }
+
+        .btn-danger { background: var(--danger); color: white; } 
+        .btn-warning { background: var(--warning); color: var(--bg-color); } 
+        .btn-success { background: var(--success); color: white; } 
+        .btn-purple { background: var(--purple); color: white; } 
+        .btn-pink { background: var(--pink); color: white; } 
+
+        #lock-screen, #setup-pin-screen {
+            text-align: center; 
+            display: none; 
+        }
+
+        #vault-screen {
+            display: none; 
+        }
+
+        .action-bar {
+            display: flex; 
+            gap: 10px; 
+            margin-bottom: 15px; 
+            flex-wrap: wrap; 
+        }
+
+        .action-bar button {
+            margin-top: 0; 
+            font-size: 14px; 
+            padding: 10px; 
+            flex: 1; 
+        }
+
+        .search-box {
+            margin-bottom: 15px; 
+        }
+
+        .account-item {
+            background: #0f172a; 
+            padding: 15px; 
+            border-radius: 8px; 
+            margin-bottom: 12px; 
+            border-left: 4px solid var(--accent); 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+        }
+
+        .account-info p {
+            margin: 4px 0; 
+            font-size: 14px; 
+        }
+
+        .badge {
+            background: #334155; 
+            color: var(--accent); 
+            padding: 3px 10px; 
+            border-radius: 4px; 
+            font-size: 12px; 
+            font-weight: bold; 
+            display: inline-block; 
+        }
+
+        .note-box {
+            margin-top: 6px; 
+            padding: 6px 10px; 
+            background: #1e293b; 
+            border-radius: 4px; 
+            font-size: 13px; 
+            color: #94a3b8; 
+            border-left: 2px solid var(--warning); 
+        }
+
+        .account-actions {
+            display: flex; 
+            flex-direction: column; 
+            gap: 5px; 
+        }
+
+        .account-actions button {
+            width: auto; 
+            padding: 6px 12px; 
+            font-size: 12px; 
+            margin-top: 0; 
+        }
+
+        .form-group {
+            margin-top: 20px; 
+            border-top: 1px solid #475569; 
+            padding-top: 15px; 
+        }
+
+        .hidden-hint {
+            font-family: monospace; 
+            letter-spacing: 1px; 
+            color: #cbd5e1; 
+        }
+
+        #custom-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+        }
+
+        .modal-content {
+            background: var(--card-bg);
+            padding: 25px;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 400px;
+            text-align: center;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            border: 1px solid #475569;
+        }
+
+        .modal-content h3 {
+            color: var(--danger);
+            margin-top: 0;
+            margin-bottom: 10px;
+        }
+
+        .modal-content p {
+            font-size: 14px;
+            color: #cbd5e1;
+            margin-bottom: 20px;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .modal-actions button {
+            margin-top: 0;
+            flex: 1;
+        }
+
+        /* Hiệu ứng rung nhẹ khi nhập sai PIN */
+        @keyframes shake {
+            0% { transform: translateX(0); }
+            20% { transform: translateX(-8px); }
+            40% { transform: translateX(8px); }
+            60% { transform: translateX(-6px); }
+            80% { transform: translateX(6px); }
+            100% { transform: translateX(0); }
+        }
+
+        .shake {
+            animation: shake 0.4s ease-in-out;
+            border-color: var(--danger) !important;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="toast-container"></div>
+
+    <div id="custom-modal">
+        <div class="modal-content">
+            <h3>⚠️ Xác Nhận Xóa</h3>
+            <p>Cậu có chắc chắn muốn xóa tài khoản này khỏi két không?</p>
+            <div class="modal-actions">
+                <button class="btn-danger" id="modal-confirm-btn">Xóa Bỏ</button>
+                <button onclick="closeModal()" style="background: #475569; color: white;">Hủy</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        
+        <div id="setup-pin-screen">
+            <h2>⚙️ Thiết Lập Két Sắt Mới</h2>
+            <p>Đây là lần đầu mở két, cậu hãy tạo một mã PIN bảo vệ:</p>
+            <input type="password" id="new-master-pin" placeholder="Nhập mã PIN của cậu">
+            <button onclick="setupPin()">Lưu Mã PIN & Mở Két</button>
+            <p id="setup-error" style="color: var(--danger); font-size: 14px;"></p>
+        </div>
+
+        <div id="lock-screen">
+            <h2>🔒 Két Sắt Bảo Mật</h2>
+            <p>Nhập mã PIN để mở két (Tự động nhận diện):</p>
+            <input type="password" id="master-pin" placeholder="Nhập mã PIN...">
+            <p id="error-msg" style="color: var(--danger); font-size: 14px; margin-top: 10px;"></p>
+        </div>
+
+        <div id="vault-screen">
+            <h2>📂 Két Sắt Cá Nhân</h2>
+            
+            <div class="action-bar">
+                <button class="btn-danger" onclick="lockVault()">🔒 Khóa Két</button>
+                <button class="btn-warning" onclick="changePinPrompt()">🔑 Đổi PIN</button>
+                <button class="btn-purple" onclick="exportData()">📤 Xuất</button>
+                <button class="btn-pink" onclick="document.getElementById('import-file').click()">📥 Nhập</button>
+                <input type="file" id="import-file" style="display: none" accept=".json" onchange="importData(event)">
+            </div>
+
+            <div class="search-box">
+                <input type="text" id="search-input" placeholder="🔍 Tìm kiếm mọi từ khóa..." oninput="filterAccounts()">
+            </div>
+            
+            <div id="account-list"></div>
+
+            <div class="form-group">
+                <h3 id="form-title">Thêm Tài Khoản Mới</h3>
+                <input type="hidden" id="edit-index" value="-1">
+                <input type="text" id="acc-category" placeholder="Loại tài khoản kèm Emoji (VD: 💼 Công việc, 🎮 Game)">
+                <input type="text" id="acc-username" placeholder="Tên đăng nhập / Email (Tài khoản)">
+                <input type="text" id="acc-hint" placeholder="Gợi ý mật khẩu / Mật khẩu (Hint)">
+                <textarea id="acc-note" placeholder="Ghi chú bổ sung (Câu hỏi bảo mật, Link đăng nhập, v.v...)"></textarea>
+                <button id="save-btn" onclick="saveOrUpdateAccount()">Lưu Vào Két</button>
+                <button id="cancel-edit-btn" class="btn-danger" style="display: none;" onclick="resetForm()">Hủy Sửa</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let idleTimer = null; 
+        const IDLE_TIME_LIMIT = 5 * 60 * 1000; 
+        let pendingDeleteIndex = null; 
+
+        function showToast(message, type = "success") {
+            const container = document.getElementById("toast-container"); 
+            const toast = document.createElement("div"); 
+            toast.className = `toast ${type}`; 
+            
+            let icon = "✅"; 
+            if (type === "danger") icon = "❌"; 
+            if (type === "warning") icon = "⚠️"; 
+
+            toast.innerHTML = `<span>${icon}</span> <span>${message}</span>`; 
+            container.appendChild(toast); 
+
+            setTimeout(() => toast.classList.add("show"), 10); 
+
+            setTimeout(() => { 
+                toast.classList.remove("show"); 
+                setTimeout(() => toast.remove(), 300); 
+            }, 3000); 
+        }
+
+        window.onload = function() {
+            const savedPin = localStorage.getItem("my_vault_pin"); 
+            if (!savedPin) { 
+                document.getElementById("setup-pin-screen").style.display = "block"; 
+            } else { 
+                document.getElementById("lock-screen").style.display = "block"; 
+                document.getElementById("master-pin").focus();
+            }
+        };
+
+        // Lắng nghe sự kiện gõ phím để tự động nhận diện và xử lý khi nhập sai
+        document.getElementById("master-pin").addEventListener("input", function() {
+            const pinInput = this.value; 
+            const savedPin = localStorage.getItem("my_vault_pin"); 
+            const errorMsg = document.getElementById("error-msg"); 
+            const inputField = this;
+
+            if (pinInput.length >= savedPin.length) {
+                if (pinInput === savedPin) { 
+                    // Đúng PIN -> Mở két
+                    document.getElementById("lock-screen").style.display = "none"; 
+                    document.getElementById("vault-screen").style.display = "block"; 
+                    errorMsg.textContent = ""; 
+                    inputField.value = ""; 
+                    loadAccounts(); 
+                    startAutoLockTimer(); 
+                    showToast("Đã mở két sắt thành công!", "success"); 
+                } else { 
+                    // Sai PIN -> Báo lỗi, rung ô input và tự động xóa sạch để nhập lại ngay
+                    errorMsg.textContent = "Mã PIN không đúng! Đã tự động làm mới.";
+                    showToast("Mã PIN không chính xác!", "danger");
+
+                    inputField.classList.add("shake");
+                    setTimeout(() => {
+                        inputField.classList.remove("shake");
+                    }, 400);
+
+                    inputField.value = "";
+                }
+            } else {
+                errorMsg.textContent = "";
+            }
+        });
+
+        function setupPin() {
+            const pin = document.getElementById("new-master-pin").value; 
+            const errorMsg = document.getElementById("setup-error"); 
+
+            if (!pin || pin.trim() === "") { 
+                errorMsg.textContent = "Mã PIN không được để trống!"; 
+                return; 
+            }
+
+            localStorage.setItem("my_vault_pin", pin); 
+            document.getElementById("setup-pin-screen").style.display = "none"; 
+            document.getElementById("vault-screen").style.display = "block"; 
+            loadAccounts(); 
+            startAutoLockTimer(); 
+            showToast("Đã tạo mã PIN và mở két thành công!", "success"); 
+        }
+
+        function lockVault() {
+            document.getElementById("vault-screen").style.display = "none"; 
+            document.getElementById("lock-screen").style.display = "block"; 
+            document.getElementById("master-pin").value = ""; 
+            document.getElementById("master-pin").focus();
+            document.getElementById("error-msg").textContent = "";
+            clearTimeout(idleTimer); 
+            showToast("Đã khóa két sắt an toàn!", "warning"); 
+        }
+
+        function startAutoLockTimer() {
+            resetTimer(); 
+            window.addEventListener('mousemove', resetTimer); 
+            window.addEventListener('keydown', resetTimer); 
+            window.addEventListener('click', resetTimer); 
+        }
+
+        function resetTimer() {
+            clearTimeout(idleTimer); 
+            if (document.getElementById("vault-screen").style.display === "block") { 
+                idleTimer = setTimeout(() => { 
+                    lockVault(); 
+                }, IDLE_TIME_LIMIT); 
+            }
+        }
+
+        function getAccounts() {
+            let accounts = localStorage.getItem("my_vault_data"); 
+            return accounts ? JSON.parse(accounts) : []; 
+        }
+
+        function saveAccounts(accounts) {
+            localStorage.setItem("my_vault_data", JSON.stringify(accounts)); 
+        }
+
+        function removeAccents(str) {
+            return str.normalize('NFD') 
+                      .replace(/[̀-ͯ]/g, '') 
+                      .toLowerCase(); 
+        }
+
+        function loadAccounts(filterText = "") {
+            const listDiv = document.getElementById("account-list"); 
+            const accounts = getAccounts(); 
+            
+            if (accounts.length === 0) { 
+                listDiv.innerHTML = "<p style='color: #94a3b8; text-align: center;'>Két sắt đang trống.</p>"; 
+                return; 
+            }
+
+            const normalizedQuery = removeAccents(filterText.trim()); 
+
+            const filteredAccounts = accounts.filter(acc => { 
+                return removeAccents(acc.category).includes(normalizedQuery) || 
+                       removeAccents(acc.username).includes(normalizedQuery) || 
+                       removeAccents(acc.hint).includes(normalizedQuery) || 
+                       (acc.note && removeAccents(acc.note).includes(normalizedQuery)); 
+            });
+
+            if (filteredAccounts.length === 0) { 
+                listDiv.innerHTML = "<p style='color: #94a3b8; text-align: center;'>Không tìm thấy tài khoản phù hợp.</p>"; 
+                return; 
+            }
+
+            let html = ""; 
+            filteredAccounts.forEach((acc) => { 
+                const originalIndex = accounts.findIndex(item => item === acc); 
+                let noteHtml = acc.note ? `<div class="note-box">📝 Ghi chú: ${acc.note}</div>` : ""; 
+
+                html += `
+                    <div class="account-item">
+                        <div class="account-info" style="width: 100%;">
+                            <span class="badge">${acc.category}</span>
+                            <p style="margin-top:6px;">Tài khoản: <code>${acc.username}</code></p>
+                            <p>Mật khẩu: <span class="hidden-hint">${acc.hint}</span></p>
+                            ${noteHtml}
+                        </div>
+                        <div class="account-actions">
+                            <button class="btn-success" onclick="editAccount(${originalIndex})">Sửa</button>
+                            <button class="btn-danger" onclick="deleteAccount(${originalIndex})">Xóa</button>
+                        </div>
+                    </div>
+                `; 
+            });
+            listDiv.innerHTML = html; 
+        }
+
+        function filterAccounts() {
+            const query = document.getElementById("search-input").value; 
+            loadAccounts(query); 
+        }
+
+        function saveOrUpdateAccount() {
+            const editIndex = parseInt(document.getElementById("edit-index").value); 
+            const category = document.getElementById("acc-category").value; 
+            const username = document.getElementById("acc-username").value; 
+            const hint = document.getElementById("acc-hint").value; 
+            const note = document.getElementById("acc-note").value; 
+
+            if (!category || !username || !hint) { 
+                alert("Cậu nhớ điền đủ loại tài khoản, tài khoản và mật khẩu nhé!"); 
+                return; 
+            }
+
+            let accounts = getAccounts(); 
+
+            if (editIndex === -1) { 
+                accounts.push({ category, username, hint, note }); 
+                showToast("Đã lưu vào két thành công!", "success"); 
+            } else { 
+                accounts[editIndex] = { category, username, hint, note }; 
+                showToast("Đã cập nhật lại tài khoản thành công!", "success"); 
+            }
+
+            saveAccounts(accounts); 
+            resetForm(); 
+            loadAccounts(); 
+        }
+
+        function editAccount(index) {
+            let accounts = getAccounts(); 
+            const acc = accounts[index]; 
+
+            document.getElementById("edit-index").value = index; 
+            document.getElementById("acc-category").value = acc.category; 
+            document.getElementById("acc-username").value = acc.username; 
+            document.getElementById("acc-hint").value = acc.hint; 
+            document.getElementById("acc-note").value = acc.note || ""; 
+
+            document.getElementById("form-title").textContent = "Chỉnh Sửa Tài Khoản"; 
+            document.getElementById("save-btn").textContent = "Cập Nhật Lại"; 
+            document.getElementById("cancel-edit-btn").style.display = "block"; 
+
+            window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }); 
+            showToast("Đã tải thông tin lên form để sửa!", "warning"); 
+        }
+
+        function resetForm() {
+            document.getElementById("edit-index").value = "-1"; 
+            document.getElementById("acc-category").value = ""; 
+            document.getElementById("acc-username").value = ""; 
+            document.getElementById("acc-hint").value = ""; 
+            document.getElementById("acc-note").value = ""; 
+            document.getElementById("search-input").value = ""; 
+
+            document.getElementById("form-title").textContent = "Thêm Tài Khoản Mới"; 
+            document.getElementById("save-btn").textContent = "Lưu Vào Két"; 
+            document.getElementById("cancel-edit-btn").style.display = "none"; 
+        }
+
+        function deleteAccount(index) {
+            pendingDeleteIndex = index; 
+            document.getElementById("custom-modal").style.display = "flex"; 
+        }
+
+        document.getElementById("modal-confirm-btn").onclick = function() {
+            if (pendingDeleteIndex !== null) { 
+                let accounts = getAccounts(); 
+                accounts.splice(pendingDeleteIndex, 1); 
+                saveAccounts(accounts); 
+                resetForm(); 
+                loadAccounts(); 
+                showToast("Đã xóa tài khoản khỏi két!", "danger"); 
+            }
+            closeModal(); 
+        };
+
+        function closeModal() {
+            document.getElementById("custom-modal").style.display = "none"; 
+            pendingDeleteIndex = null; 
+        }
+
+        function changePinPrompt() {
+            const oldPinInput = prompt("Nhập mã PIN cũ của cậu:"); 
+            if (oldPinInput === null) return; 
+
+            const savedPin = localStorage.getItem("my_vault_pin"); 
+            if (oldPinInput !== savedPin) { 
+                alert("Mã PIN cũ không chính xác!"); 
+                showToast("Mã PIN cũ không chính xác!", "danger"); 
+                return; 
+            }
+
+            const newPinInput = prompt("Nhập mã PIN mới (không được để trống):"); 
+            if (newPinInput === null) return; 
+
+            if (!newPinInput || newPinInput.trim() === "") { 
+                alert("Mã PIN mới không hợp lệ!"); 
+                return; 
+            }
+
+            localStorage.setItem("my_vault_pin", newPinInput); 
+            showToast("Đã đổi mã PIN thành công!", "success"); 
+        }
+
+        function exportData() {
+            const data = { 
+                pin: localStorage.getItem("my_vault_pin"), 
+                accounts: getAccounts() 
+            };
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data)); 
+            const dlAnchorElem = document.createElement('a'); 
+            dlAnchorElem.setAttribute("href", dataStr); 
+            dlAnchorElem.setAttribute("download", "ket_sat_backup.json"); 
+            document.body.appendChild(dlAnchorElem); 
+            dlAnchorElem.click(); 
+            dlAnchorElem.remove(); 
+            showToast("Đã xuất file dự phòng thành công!", "success"); 
+        }
+
+        function importData(event) {
+            const fileReader = new FileReader(); 
+            if (event.target.files[0]) { 
+                fileReader.readAsText(event.target.files[0], "UTF-8"); 
+                fileReader.onload = function(e) { 
+                    const importedData = JSON.parse(e.target.result); 
+                    if (importedData.pin && importedData.accounts) { 
+                        if (confirm("Việc nhập dữ liệu sẽ ghi đè lên toàn bộ dữ liệu hiện tại trên máy này. Cậu có chắc chắn muốn tiếp tục không?")) { 
+                            localStorage.setItem("my_vault_pin", importedData.pin); 
+                            saveAccounts(importedData.accounts); 
+                            resetForm(); 
+                            loadAccounts(); 
+                            startAutoLockTimer(); 
+                            showToast("Đã nhập dữ liệu thành công!", "success"); 
+                        }
+                    } else { 
+                        alert("File dự phòng không hợp lệ!"); 
+                    }
+                };
+            }
+        }
+    </script>
+</body>
+</html>
