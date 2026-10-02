@@ -216,18 +216,14 @@
         .craft-item-wrapper:active { cursor: grabbing; }
         .craft-item-wrapper.dragging { opacity: 0.4; border: 2px dashed var(--warning); background: var(--bg); }
         .craft-item-wrapper.drag-over { border: 2px dashed var(--accent); }
-        .craft-item-wrapper.selected-item { border-color: var(--warning); background: rgba(251, 191, 36, 0.15); }
+        .craft-item-wrapper.selected-for-deletion { border: 2px solid var(--danger); background: rgba(244,63,94,0.15); }
+        .craft-item-wrapper.selected-for-rename { border: 2px solid var(--warning); background: rgba(251,191,36,0.15); }
 
         .craft-item-thumb {
             width: 45px; height: 45px; border-radius: 6px; object-fit: cover; border: 1px solid var(--accent); cursor: pointer;
             transition: 0.2s; background: var(--border); margin-top: 2px;
         }
         .craft-item-thumb:hover { transform: scale(1.05); border-color: var(--warning); }
-
-        .craft-item-checkbox {
-            position: absolute; top: 4px; left: 4px; z-index: 5;
-            width: 16px; height: 16px; cursor: pointer; accent-color: var(--warning);
-        }
 
         .action-menu-content { display: flex; flex-direction: column; gap: 10px; }
         .action-menu-btn { padding: 10px; border-radius: 6px; font-weight: bold; border: 1px solid var(--border); background: var(--bg); color: var(--text); text-align: center; cursor: pointer; transition: 0.2s; }
@@ -320,7 +316,7 @@
                     <button id="craftBackBtn" class="mini-btn" title="Quay lại cấp trước" style="display:none;" onclick="craftGoBack()">⬅ Quay lại</button>
                 </div>
             </div>
-            <div id="craftModalSubText" style="font-size: 12px; opacity: 0.8;">(Mẹo: Cấp 1 & 2 nhấn giữ để tùy chọn, Cấp 3 bấm vào trang bị để chọn)</div>
+            <div id="craftModalSubText" style="font-size: 12px; opacity: 0.8;">(Mẹo: Nhấn giữ cấp 1 & 2 để tùy chọn. Ở cấp 3, chọn chế độ Đổi tên hoặc Xóa nhiều bên dưới)</div>
             <div id="craftModalBody" class="craft-grid"></div>
             <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 5px;">
                 <button id="craftUploadActionBtn" class="btn-action" title="Thêm nhóm hoặc tải ảnh mới" style="border-color: var(--accent); color: var(--accent);" onclick="document.getElementById('uploadCraftImagesInput').click()">📁 Tải ảnh lên</button>
@@ -331,7 +327,7 @@
         </div>
     </div>
 
-    <!-- Modal Menu Thao Tác Nhấn Giữ (Dành cho cấp 1 & 2) -->
+    <!-- Modal Menu Thao Tác Nhấn Giữ -->
     <div id="actionMenuModal">
         <div class="modal-content" style="max-width: 320px;">
             <h3 id="actionMenuTitle" style="margin: 0; font-size: 15px; text-align: center; color: var(--accent);">🛠 Tùy Chọn Thao Tác</h3>
@@ -354,8 +350,11 @@
         let craftSelectedL2 = null;
         let targetGroupForAvatarChange = null; 
 
-        let isCraftSelectMode = false; // Bật/Tắt chế độ check chọn nhiều ở Cấp 3
-        let selectedCraftItemIndexes = new Set(); // Lưu index các món trang bị đang được check chọn
+        // Trạng thái chọn nhiều để xóa hoặc đổi tên ở cấp 3
+        let isMultiDeleteCraftActive = false;
+        let isRenameCraftActive = false;
+        let selectedCraftItemsForDeletion = new Set();
+        let craftSortMode = '1-100'; // '1-100' hoặc '100-1'
 
         let dragAvatarSourceIndex = null;
         let dragCraftL1SourceKey = null;
@@ -628,14 +627,16 @@
             });
         }
 
-        // --- HỆ THỐNG 3 CẤP NHÓM CRAFT & CHỌN NHIỀU (CHECKBOX) ---
+        // --- HỆ THỐNG 3 CẤP NHÓM CRAFT ---
         function openCraftModal(itemIndex = null) {
             activeCraftEditingIndex = itemIndex;
             craftLevel = 1;
             craftSelectedL1 = null;
             craftSelectedL2 = null;
-            isCraftSelectMode = false;
-            selectedCraftItemIndexes.clear();
+            isMultiDeleteCraftActive = false;
+            isRenameCraftActive = false;
+            selectedCraftItemsForDeletion.clear();
+            craftSortMode = '1-100';
             renderCraftModalContent();
             document.getElementById('craftModal').style.display = 'flex';
         }
@@ -645,15 +646,17 @@
             const titleEl = document.getElementById('craftModalTitle');
             const navActionContainer = document.getElementById('craftNavActionContainer');
             const uploadBtn = document.getElementById('craftUploadActionBtn');
-            bodyEl.innerHTML = '';
             
+            bodyEl.innerHTML = '';
             navActionContainer.innerHTML = `<button id="craftBackBtn" class="mini-btn" title="Quay lại cấp trước" style="display:none;" onclick="craftGoBack()">⬅ Quay lại</button>`;
 
             if (craftLevel === 1) {
+                isMultiDeleteCraftActive = false;
+                isRenameCraftActive = false;
+                selectedCraftItemsForDeletion.clear();
                 titleEl.innerText = "🛠 Kho Craft (Cấp 1: Nhóm lớn)";
                 uploadBtn.innerText = "📁 Thêm Nhóm Cấp 1";
                 uploadBtn.title = "Tạo nhóm lớn Cấp 1 mới";
-                isCraftSelectMode = false;
 
                 let l1Keys = Object.keys(globalCraftLibrary);
                 if (l1Keys.length === 0) {
@@ -721,11 +724,13 @@
                     });
                 }
             } else if (craftLevel === 2) {
+                isMultiDeleteCraftActive = false;
+                isRenameCraftActive = false;
+                selectedCraftItemsForDeletion.clear();
                 titleEl.innerText = `📂 Cấp 2: ${craftSelectedL1}`;
                 document.getElementById('craftBackBtn').style.display = 'inline-flex';
                 uploadBtn.innerText = "📁 Thêm Nhóm Cấp 2";
                 uploadBtn.title = "Tạo nhóm con Cấp 2 mới";
-                isCraftSelectMode = false;
 
                 let l1Node = globalCraftLibrary[craftSelectedL1];
                 let l2Keys = Object.keys(l1Node.subGroups || {});
@@ -783,8 +788,7 @@
                             playClickSound(400);
                             craftSelectedL2 = l2Name;
                             craftLevel = 3;
-                            isCraftSelectMode = false;
-                            selectedCraftItemIndexes.clear();
+                            craftSortMode = '1-100'; // Mặc định về 1-100 khi vào nhóm cấp 3 mới
                             renderCraftModalContent();
                         });
 
@@ -796,80 +800,166 @@
                 uploadBtn.innerText = "📁 Tải ảnh vào nhóm này";
                 uploadBtn.title = "Tải thêm trang bị vào nhóm này";
 
-                let selectModeBtnText = isCraftSelectMode ? '❌ Thoát Chọn' : '☑ Chọn Nhiều';
-                let selectModeBtnColor = isCraftSelectMode ? 'var(--warning)' : 'var(--accent)';
+                let multiDeleteBtnStyle = isMultiDeleteCraftActive ? "background: var(--danger); color: #fff;" : "background: var(--border); color: var(--danger);";
+                let multiDeleteBtnText = isMultiDeleteCraftActive ? "❌ Hủy Xóa Nhiều" : "🗑️ Xóa Nhiều";
 
+                let renameBtnStyle = isRenameCraftActive ? "background: var(--warning); color: #000;" : "background: var(--border); color: var(--warning);";
+                let renameBtnText = isRenameCraftActive ? "❌ Hủy Đổi Tên" : "✏️ Đổi Tên";
+
+                let sortBtnText = craftSortMode === '1-100' ? "🔃 Sắp xếp:" : "🔃 Sắp xếp:";
+                
                 navActionContainer.innerHTML = `
-                    <button class="mini-btn" title="Sắp xếp trang bị theo tên A-Z" style="background: var(--stone); color: #000;" onclick="sortCraftItemsAZ()">🔤 Sắp Xếp A-Z</button>
-                    <button class="mini-btn" title="Sắp xếp theo tên và số giảm dần (lớn đến bé)" style="background: var(--warning); color: #000;" onclick="sortCraftItemsNameAndNumberDesc()">🔽 Giảm Dần</button>
-                    <button class="mini-btn" title="Bật/Tắt chế độ chọn nhiều để sửa/xóa" style="background: ${selectModeBtnColor}; color: #000;" onclick="toggleCraftSelectMode()">${selectModeBtnText}</button>
+                    <button class="mini-btn" title="Bật chế độ đổi tên nhanh trang bị" style="${renameBtnStyle}" onclick="toggleRenameCraftMode()">${renameBtnText}</button>
+                    <button class="mini-btn" title="Chọn nhiều trang bị để xóa hàng loạt" style="${multiDeleteBtnStyle}" onclick="toggleMultiDeleteCraftMode()">${multiDeleteBtnText}</button>
+                    ${isMultiDeleteCraftActive && selectedCraftItemsForDeletion.size > 0 ? `<button class="mini-btn" title="Xóa các mục đã chọn" style="background: var(--danger); color: #fff;" onclick="executeMultiDeleteCraft()">🗑️ Xóa (${selectedCraftItemsForDeletion.size})</button>` : ''}
+                    <button class="mini-btn" title="Đổi chế độ sắp xếp (1-100 hoặc 100-1)" style="background: var(--accent); color: var(--bg);" onclick="toggleCraftSortMode()">${sortBtnText}</button>
                     <button class="mini-btn" title="Quay lại cấp trước" onclick="craftGoBack()">⬅ Quay lại</button>
                 `;
 
                 let l2Node = globalCraftLibrary[craftSelectedL1].subGroups[craftSelectedL2];
                 let itemsList = l2Node.items || [];
 
-                if (isCraftSelectMode) {
-                    const toolbar = document.createElement('div');
-                    toolbar.style.cssText = "width: 100%; display: flex; justify-content: space-between; align-items: center; background: rgba(251,191,36,0.1); border: 1px dashed var(--warning); padding: 6px 10px; border-radius: 6px; font-size: 12px; margin-bottom: 5px;";
-                    toolbar.innerHTML = `
-                        <span>Đã chọn: <b>${selectedCraftItemIndexes.size}</b> món</span>
-                        <div style="display: flex; gap: 5px;">
-                            <button class="mini-btn" style="background: var(--accent); color: #000;" onclick="batchRenameCraftItems()">✏️ Đổi tên hàng loạt</button>
-                            <button class="mini-btn" style="background: var(--danger); color: #fff;" onclick="batchDeleteCraftItems()">🗑 Xóa đã chọn</button>
-                        </div>
-                    `;
-                    bodyEl.appendChild(toolbar);
-                }
-
                 if (itemsList.length === 0) {
                     bodyEl.innerHTML += '<div style="width: 100%; text-align: center; font-size: 12px; opacity: 0.7; padding: 20px;">Nhóm này chưa có trang bị nào. Hãy tải ảnh lên!</div>';
                 } else {
-                    itemsList.forEach((imgObj, index) => {
-                        const wrapper = document.createElement('div');
-                        const isChecked = selectedCraftItemIndexes.has(index);
-                        wrapper.className = `craft-item-wrapper ${isChecked ? 'selected-item' : ''}`;
-                        wrapper.draggable = !isCraftSelectMode; 
-                        wrapper.title = `${imgObj.name} (Bấm vào để chọn trang bị)`;
+                    // Tạo bản sao danh sách để hiển thị theo cơ chế sắp xếp (1-100 hoặc 100-1) mà không làm mất index gốc của dữ liệu
+                    let indexedItems = itemsList.map((item, originalIndex) => ({ item, originalIndex }));
+                    if (craftSortMode === '100-1') {
+                        indexedItems.reverse();
+                    }
 
-                        let checkboxHtml = isCraftSelectMode ? `<input type="checkbox" class="craft-item-checkbox" ${isChecked ? 'checked' : ''} onclick="event.stopPropagation(); toggleCraftItemCheck(${index})">` : '';
+                    indexedItems.forEach(({ item: imgObj, originalIndex: index }) => {
+                        const wrapper = document.createElement('div');
+                        let isSelectedDelete = selectedCraftItemsForDeletion.has(index);
+                        
+                        let extraClass = '';
+                        if (isSelectedDelete) extraClass = 'selected-for-deletion';
+                        else if (isRenameCraftActive) extraClass = 'selected-for-rename';
+
+                        wrapper.className = `craft-item-wrapper ${extraClass}`;
+                        wrapper.draggable = !isMultiDeleteCraftActive && !isRenameCraftActive; 
+                        wrapper.title = `${imgObj.name} (Nhấn để đổi tên/xóa, hoặc giữ để tùy chọn)`;
 
                         wrapper.innerHTML = `
-                            ${checkboxHtml}
-                            <img src="${imgObj.url}" class="craft-item-thumb" title="Chọn trang bị này">
+                            <img src="${imgObj.url}" class="craft-item-thumb" title="${imgObj.name}">
                             <div style="font-size: 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; text-align: center; opacity: 0.9; margin-top: auto;" title="${imgObj.name}">${imgObj.name}</div>
                         `;
 
+                        // Xử lý khi click vào item ở cấp 3 dựa theo chế độ đang bật
                         wrapper.onclick = () => {
-                            if (isCraftSelectMode) {
-                                toggleCraftItemCheck(index);
+                            if (isRenameCraftActive) {
+                                playClickSound(300);
+                                renameSingleCraftItem(index);
+                            } else if (isMultiDeleteCraftActive) {
+                                playClickSound(300);
+                                if (selectedCraftItemsForDeletion.has(index)) {
+                                    selectedCraftItemsForDeletion.delete(index);
+                                } else {
+                                    selectedCraftItemsForDeletion.add(index);
+                                }
+                                renderCraftModalContent();
                             } else {
+                                // Mặc định click chọn trang bị cho card ngoài
                                 selectCraftItem(imgObj);
                             }
                         };
 
-                        if (!isCraftSelectMode) {
-                            wrapper.addEventListener('dragstart', () => { dragCraftItemSourceIndex = index; wrapper.classList.add('dragging'); });
-                            wrapper.addEventListener('dragend', () => { wrapper.classList.remove('dragging'); dragCraftItemSourceIndex = null; document.querySelectorAll('.craft-item-wrapper').forEach(el => el.classList.remove('drag-over')); });
-                            wrapper.addEventListener('dragover', (e) => { e.preventDefault(); wrapper.classList.add('drag-over'); });
-                            wrapper.addEventListener('dragleave', () => { wrapper.classList.remove('drag-over'); });
-                            wrapper.addEventListener('drop', (e) => {
-                                e.preventDefault();
-                                wrapper.classList.remove('drag-over');
-                                if (dragCraftItemSourceIndex === null || dragCraftItemSourceIndex === index) return;
-                                
-                                const movedItem = itemsList.splice(dragCraftItemSourceIndex, 1)[0];
-                                itemsList.splice(index, 0, movedItem);
-                                dragCraftItemSourceIndex = null;
-                                saveDataToIDB();
-                                renderCraftModalContent();
-                                showToast("✨ Đã sắp xếp lại vị trí trang bị!", "success");
-                            });
-                        }
+                        // Giữ nguyên tính năng nhấn giữ (long press) mở menu tùy chọn riêng lẻ
+                        bindLongPress(wrapper, () => {
+                            if (!isRenameCraftActive && !isMultiDeleteCraftActive) {
+                                openActionMenu("Trang bị: " + imgObj.name, [
+                                    { label: "✏️ Đổi tên trang bị này", action: () => renameSingleCraftItem(index) },
+                                    { label: "🗑 Xóa trang bị này", danger: true, action: () => deleteSingleCraftItem(index) }
+                                ]);
+                            }
+                        }, () => {
+                            // Đã xử lý ở onclick phía trên cho thao tác chạm nhanh khi bật chế độ
+                        });
+
+                        wrapper.addEventListener('dragstart', () => { dragCraftItemSourceIndex = index; wrapper.classList.add('dragging'); });
+                        wrapper.addEventListener('dragend', () => { wrapper.classList.remove('dragging'); dragCraftItemSourceIndex = null; document.querySelectorAll('.craft-item-wrapper').forEach(el => el.classList.remove('drag-over')); });
+                        wrapper.addEventListener('dragover', (e) => { e.preventDefault(); wrapper.classList.add('drag-over'); });
+                        wrapper.addEventListener('dragleave', () => { wrapper.classList.remove('drag-over'); });
+                        wrapper.addEventListener('drop', (e) => {
+                            e.preventDefault();
+                            wrapper.classList.remove('drag-over');
+                            if (dragCraftItemSourceIndex === null || dragCraftItemSourceIndex === index) return;
+                            
+                            const movedItem = itemsList.splice(dragCraftItemSourceIndex, 1)[0];
+                            itemsList.splice(index, 0, movedItem);
+                            dragCraftItemSourceIndex = null;
+                            saveDataToIDB();
+                            renderCraftModalContent();
+                            showToast("✨ Đã sắp xếp lại vị trí trang bị!", "success");
+                        });
 
                         bodyEl.appendChild(wrapper);
                     });
                 }
+            }
+        }
+
+        // --- CÁC HÀM XỬ LÝ SẮP XẾP, CHỌN XÓA HOẶC ĐỔI TÊN Ở CẤP 3 ---
+        function toggleCraftSortMode() {
+            craftSortMode = craftSortMode === '1-100' ? '100-1' : '1-100';
+            playClickSound(500);
+            renderCraftModalContent();
+            showToast(craftSortMode === '1-100' ? "🔃 Đã chuyển sang chế độ sắp xếp 1-100" : "🔃 Đã chuyển sang chế độ sắp xếp 100-1", "success");
+        }
+
+        function toggleMultiDeleteCraftMode() {
+            isMultiDeleteCraftActive = !isMultiDeleteCraftActive;
+            if (isMultiDeleteCraftActive) isRenameCraftActive = false; // Tắt chế độ đổi tên nếu đang bật
+            selectedCraftItemsForDeletion.clear();
+            playClickSound(400);
+            renderCraftModalContent();
+            showToast(isMultiDeleteCraftActive ? "🗑️ Đã bật chế độ chọn nhiều trang bị để xóa" : "🔒 Đã tắt chế độ xóa nhiều", "warning");
+        }
+
+        function toggleRenameCraftMode() {
+            isRenameCraftActive = !isRenameCraftActive;
+            if (isRenameCraftActive) isMultiDeleteCraftActive = false; // Tắt chế độ xóa nhiều nếu đang bật
+            playClickSound(400);
+            renderCraftModalContent();
+            showToast(isRenameCraftActive ? "✏️ Đã bật chế độ Đổi tên: Hãy bấm trực tiếp vào trang bị cần đổi tên!" : "🔒 Đã tắt chế độ Đổi tên", "warning");
+        }
+
+        function executeMultiDeleteCraft() {
+            if (selectedCraftItemsForDeletion.size === 0) return;
+            if (confirm(`Bạn có chắc muốn xóa vĩnh viễn ${selectedCraftItemsForDeletion.size} trang bị đã chọn không?`)) {
+                let l2Node = globalCraftLibrary[craftSelectedL1].subGroups[craftSelectedL2];
+                let sortedIndices = Array.from(selectedCraftItemsForDeletion).sort((a, b) => b - a);
+                sortedIndices.forEach(idx => {
+                    l2Node.items.splice(idx, 1);
+                });
+                selectedCraftItemsForDeletion.clear();
+                isMultiDeleteCraftActive = false;
+                saveDataToIDB();
+                renderCraftModalContent();
+                showToast("🗑️ Đã xóa các trang bị được chọn thành công!", "success");
+            }
+        }
+
+        function renameSingleCraftItem(index) {
+            let l2Node = globalCraftLibrary[craftSelectedL1].subGroups[craftSelectedL2];
+            let currentName = l2Node.items[index].name;
+            let newName = prompt("Nhập tên mới cho trang bị này:", currentName);
+            if (!newName || newName.trim() === "" || newName.trim() === currentName) return;
+            
+            l2Node.items[index].name = newName.trim();
+            saveDataToIDB();
+            renderCraftModalContent();
+            showToast("✏️ Đã đổi tên trang bị thành công!", "success");
+        }
+
+        function deleteSingleCraftItem(index) {
+            let l2Node = globalCraftLibrary[craftSelectedL1].subGroups[craftSelectedL2];
+            let itemName = l2Node.items[index].name;
+            if (confirm(`Bạn có chắc muốn xóa trang bị "${itemName}" này không?`)) {
+                l2Node.items.splice(index, 1);
+                saveDataToIDB();
+                renderCraftModalContent();
+                showToast("🗑️ Đã xóa trang bị!", "success");
             }
         }
 
@@ -891,94 +981,6 @@
             renderCraftModalContent();
             playClickSound(700);
             showToast("🔤 Đã sắp xếp các trang bị theo thứ tự A-Z thành công!", "success");
-        }
-
-        function sortCraftItemsNameAndNumberDesc() {
-            if (!craftSelectedL1 || !craftSelectedL2) return;
-            let l2Node = globalCraftLibrary[craftSelectedL1].subGroups[craftSelectedL2];
-            if (!l2Node || !l2Node.items || l2Node.items.length <= 1) {
-                showToast("Không có đủ trang bị để sắp xếp!", "warning");
-                return;
-            }
-
-            l2Node.items.sort((a, b) => {
-                let nameA = (a.name || "").trim();
-                let nameB = (b.name || "").trim();
-
-                let regex = /^(.*?)([\d]+)$/;
-                let matchA = nameA.match(regex);
-                let matchB = nameB.match(regex);
-
-                if (matchA && matchB && matchA[1].trim() === matchB[1].trim()) {
-                    let numA = parseInt(matchA[2], 10);
-                    let numB = parseInt(matchB[2], 10);
-                    return numB - numA; // Số từ lớn đến bé
-                }
-
-                return nameB.localeCompare(nameA, 'vi', { numeric: true, sensitivity: 'base' });
-            });
-
-            saveDataToIDB();
-            renderCraftModalContent();
-            playClickSound(700);
-            showToast("🔽 Đã sắp xếp trang bị theo tên và số (lớn đến bé) thành công!", "success");
-        }
-
-        function toggleCraftSelectMode() {
-            isCraftSelectMode = !isCraftSelectMode;
-            selectedCraftItemIndexes.clear();
-            playClickSound(500);
-            renderCraftModalContent();
-        }
-
-        function toggleCraftItemCheck(index) {
-            if (selectedCraftItemIndexes.has(index)) {
-                selectedCraftItemIndexes.delete(index);
-            } else {
-                selectedCraftItemIndexes.add(index);
-            }
-            playClickSound(300);
-            renderCraftModalContent();
-        }
-
-        function batchRenameCraftItems() {
-            if (selectedCraftItemIndexes.size === 0) {
-                showToast("Vui lòng chọn ít nhất một món trang bị!", "warning");
-                return;
-            }
-            let newPrefix = prompt("Nhập tên mới (hoặc tiền tố chung) cho các món đã chọn:");
-            if (!newPrefix || newPrefix.trim() === "") return;
-
-            let l2Node = globalCraftLibrary[craftSelectedL1].subGroups[craftSelectedL2];
-            selectedCraftItemIndexes.forEach(idx => {
-                l2Node.items[idx].name = newPrefix.trim();
-            });
-
-            saveDataToIDB();
-            isCraftSelectMode = false;
-            selectedCraftItemIndexes.clear();
-            renderCraftModalContent();
-            showToast("✏️ Đã đổi tên hàng loạt thành công!", "success");
-        }
-
-        function batchDeleteCraftItems() {
-            if (selectedCraftItemIndexes.size === 0) {
-                showToast("Vui lòng chọn ít nhất một món trang bị!", "warning");
-                return;
-            }
-            if (confirm(`Bạn có chắc muốn xóa ${selectedCraftItemIndexes.size} món trang bị đã chọn không?`)) {
-                let l2Node = globalCraftLibrary[craftSelectedL1].subGroups[craftSelectedL2];
-                let sortedIndexes = Array.from(selectedCraftItemIndexes).sort((a, b) => b - a);
-                sortedIndexes.forEach(idx => {
-                    l2Node.items.splice(idx, 1);
-                });
-
-                saveDataToIDB();
-                isCraftSelectMode = false;
-                selectedCraftItemIndexes.clear();
-                renderCraftModalContent();
-                showToast("🗑️ Đã xóa các món đã chọn!", "success");
-            }
         }
 
         function openActionMenu(title, options) {
@@ -1141,8 +1143,9 @@
 
         function craftGoBack() {
             playClickSound(350);
-            isCraftSelectMode = false;
-            selectedCraftItemIndexes.clear();
+            isMultiDeleteCraftActive = false;
+            isRenameCraftActive = false;
+            selectedCraftItemsForDeletion.clear();
             if (craftLevel === 3) {
                 craftLevel = 2;
                 craftSelectedL2 = null;
@@ -1159,8 +1162,9 @@
             craftLevel = 1;
             craftSelectedL1 = null;
             craftSelectedL2 = null;
-            isCraftSelectMode = false;
-            selectedCraftItemIndexes.clear();
+            isMultiDeleteCraftActive = false;
+            isRenameCraftActive = false;
+            selectedCraftItemsForDeletion.clear();
         }
 
         function selectCraftItem(imgObj) {
@@ -1302,7 +1306,7 @@
         }
 
         function resetAllCurrentMode() {
-            if (confirm("Bạn có chắc muốn xoá sạch tất cả các mục trong tab hiện tại?")) {
+            if (confirm("Hành động này sẽ xoá sạch tất cả các mục trong tab hiện tại. Bạn có chắc chắn không?")) {
                 saveStateToHistory();
                 items = items.filter(item => (item.category || 'quest') !== currentTab);
                 saveDataToIDB();
